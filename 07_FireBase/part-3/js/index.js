@@ -1,26 +1,72 @@
 $(function () {
   'use strict';
 
-  const tempToggle = $("#temp-toggle");
-  const tempTime = $("#temp_time");
-  let kitchen = {
-    temp: {
-      status: false,
-      time: null
+  let sensors = {
+    kitchen:{
+      temp: {
+        status: false,
+        time: null
+      },
+      light: {
+        status: false,
+        time: null
+      },
+      north_window:{
+        open: true,
+        time: null
+      },
+      west_window:{
+        open: false,
+        time: null
+      }
     },
-    light: {
-      status: false,
-      time: null
+    room:{
+      temp: {
+        status: false,
+        time: null
+      },
+      light: {
+        status: false,
+        time: null
+      }
     }
-  }
-  const lightToggle = $("#light-toggle"); //recebe um objeto
-  const lightTime = $("#light_time");
+  };
 
-  function toggleAndSaveStatus(name, obj){
-    obj.status = !obj.status
-    obj.time = new Date();
-    localStorage.setItem(name + "_status", obj.status);
-    localStorage.setItem(name + "_time", obj.time.toISOString());
+  const kitchemTempToggle = $("#kitchen_temp-toggle");
+  const kitchenTempTime = $("#kitchen_temp_time");
+  const kitchenLightToggle = $("#kitchen_light-toggle"); //recebe um objeto
+  const kitchenLightTime = $("#kiechen_light_time");
+
+  /**
+   * 
+   * @param {*} area name of the area
+   * @param {*} name of the sensor
+   * @param {*} sensor JSON
+   */
+
+  function toggleAndSaveStatus(area,name, sensor){
+    if(sensor.status != undefined){
+      sensor.status = !sensor.status;
+      localStorage.setItem(area + '_' + sensor + "_status", sensor.status);
+    }
+    if(sensor.open != undefined) {
+      sensor.open = !sensor.open;
+      localStorage.setItem(area + '_' + sensor + "_open", sensor.open);
+    }
+    sensor.time = new Date();
+    localStorage.setItem(area + '_' + sensor + "_time", sensor.time.toISOString());
+    let obj ={};
+    obj[area][name] = sensor;
+    sendToCloud(obj);
+  }
+
+  function loadStatus(area,name){
+    let sensor = sensors[area][name];
+    sensor.status = localStorage.getItem(area + '_' + sensor + "_status")
+    sensor.status = localStorage.getItem(area + '_' + sensor + "_open")
+    sensor.time = localStorage.getItem(area + '_' + sensor + "_time")
+    if(time)
+
   }
 
 
@@ -70,11 +116,7 @@ $(function () {
   }
 
 
-  tempToggle.on ('click', toggleButton);
-  tempToggle.click (changeTemperature);
-  
-  lightToggle.click(toggleButton);
-  lightToggle.click(changeLightBulb);
+
 
   changeTemperature ();
 
@@ -100,12 +142,17 @@ $(function () {
   }
 
   var kitchenTimer = setInterval (function() {
-    updateKitchenTime(kitchen.temp.time, tempTime);
-    updateKitchenTime(kitchen.light.time, lightTime);  
+    updateKitchenTime(kitchen.temp.time, $('kitchen_temp_time_indicator'));
+    updateKitchenTime(kitchen.light.time, $('kitchen_light_time_indicator'));  
   }, 1000);
 
 
   function loadInitialValues() {
+    loadStatus("kitchen", "temp");
+    loadStatus("kitchen", "light");
+    loadStatus("kitchen", "north_window");
+    loadStatus("kitchen", "west_window");
+
     kitchen.temp.status = localStorage.getItem("kitchen_temp_status") === 'true';
     const tempI = tempToggle.find("i");
     if (kitchen.temp.status != tempI.hasClass("fa-toggle-on")){
@@ -137,7 +184,7 @@ $(function () {
   function sendToCloud(dataToSend) {
     $.ajax({
       url: firebaseURL,
-      type: 'PUT',// quando faço post ele inventa me ASCII no identificador
+      type: 'PATCH',// quando faço post ele inventa me ASCII no identificador
       data: JSON.stringify(dataToSend),
       contentType: 'application/json',
     }).done(function (data) {
@@ -229,6 +276,14 @@ $(function () {
   fetchWeather();
   loadInitialValues();
   loadFromCloud();
+
+  for (const area in sensors) {
+    for (const sensor in sensors[area]) {
+      $('#' + area + '_' + sensor + '_toggle').click(function(event){
+        toggleButton(event, area, sensor)
+      }
+    }
+  }
 
 
 });
